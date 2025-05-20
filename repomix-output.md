@@ -29,7 +29,7 @@ The content is organized as follows:
 ## Notes
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Files matching these patterns are excluded: .gitignore, poetry.lock, LICENSE, **/__init__.py, tests/**, repomix.config.json
+- Files matching these patterns are excluded: .gitignore, poetry.lock, LICENSE, **/__init__.py, tests/**, repomix.config.json, .pre-commit-config.yaml
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Code comments have been removed from supported file types
@@ -39,7 +39,6 @@ The content is organized as follows:
 
 # Directory Structure
 ```
-.pre-commit-config.yaml
 docs/flow.md
 issue_helper/agents.py
 issue_helper/itsm.py
@@ -78,35 +77,6 @@ confidence: float
 # Issue Helper
 
 TODO
-````
-
-## File: .pre-commit-config.yaml
-````yaml
-repos:
-    - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v5.0.0
-      hooks:
-          - id: check-added-large-files
-          - id: check-toml
-          - id: detect-private-key
-          - id: end-of-file-fixer
-    - repo: local
-      hooks:
-          - id: pytest
-            name: pytest
-            entry: pytest
-            language: system
-            types: [python]
-            pass_filenames: false
-            always_run: true
-    - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.9.7
-      hooks:
-          - id: ruff
-            args: [--fix]
-            types_or: [python, pyi]
-          - id: ruff-format
-            types_or: [python, pyi]
 ````
 
 ## File: docs/flow.md
