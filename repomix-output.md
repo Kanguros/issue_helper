@@ -1,4 +1,5 @@
-This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where comments have been removed, empty lines have been removed, content has been compressed (code blocks are separated by ⋮---- delimiter).
 
 # File Summary
 
@@ -28,14 +29,17 @@ The content is organized as follows:
 ## Notes
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: .gitignore, poetry.lock, LICENSE, **/__init__.py, tests/**, repomix.config.json
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
+- Code comments have been removed from supported file types
+- Empty lines have been removed from all files
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
 - Files are sorted by Git change count (files with more changes are at the bottom)
 
 # Directory Structure
 ```
 .pre-commit-config.yaml
-.repomixignore
 docs/flow.md
 issue_helper/agents.py
 issue_helper/itsm.py
@@ -47,18 +51,33 @@ README.md
 
 # Files
 
-## File: .repomixignore
+## File: issue_helper/models.py
+````python
+class ServiceNowIncident(BaseModel)
+⋮----
+sys_id: str = Field(..., description="Unique incident identifier")
+number: str = Field(..., description="Incident number")
+short_description: str
+description: str
+configuration_item: Optional[str]
+related_ci: list[str] = []
+application: Optional[str]
+priority: int
+state: int
+class AnalysisResult(BaseModel)
+⋮----
+incident_id: str
+agent_name: str
+findings: list[str]
+recommendations: list[str]
+confidence: float
 ````
-# Add patterns to ignore here, one per line
-# Example:
-# *.log
-# tmp/
 
-.gitignore
-poetry.lock
-**/__init__.py
-LICENSE
-tests/**
+## File: README.md
+````markdown
+# Issue Helper
+
+TODO
 ````
 
 ## File: .pre-commit-config.yaml
@@ -71,7 +90,6 @@ repos:
           - id: check-toml
           - id: detect-private-key
           - id: end-of-file-fixer
-
     - repo: local
       hooks:
           - id: pytest
@@ -81,16 +99,6 @@ repos:
             types: [python]
             pass_filenames: false
             always_run: true
-
-    # - repo: https://github.com/pre-commit/mirrors-prettier
-    #   rev: "v4.0.0-alpha.8"
-    #   hooks:
-    #       - id: prettier
-    #         files: \.(js|yaml|md)$
-    #         args:
-    #             - "--tab-width"
-    #             - "4"
-
     - repo: https://github.com/astral-sh/ruff-pre-commit
       rev: v0.9.7
       hooks:
@@ -99,40 +107,6 @@ repos:
             types_or: [python, pyi]
           - id: ruff-format
             types_or: [python, pyi]
-````
-
-## File: issue_helper/models.py
-````python
-from typing import Optional
-
-from pydantic import BaseModel, Field
-
-
-class ServiceNowIncident(BaseModel):
-    sys_id: str = Field(..., description="Unique incident identifier")
-    number: str = Field(..., description="Incident number")
-    short_description: str
-    description: str
-    configuration_item: Optional[str]
-    related_ci: list[str] = []
-    application: Optional[str]
-    priority: int
-    state: int
-
-
-class AnalysisResult(BaseModel):
-    incident_id: str
-    agent_name: str
-    findings: list[str]
-    recommendations: list[str]
-    confidence: float
-````
-
-## File: README.md
-````markdown
-# Issue Helper
-
-TODO
 ````
 
 ## File: docs/flow.md
@@ -210,180 +184,62 @@ flowchart TD
 
 ## File: issue_helper/agents.py
 ````python
-from google import genai
-from google.genai import types
-
-from issue_helper.itsm import ServiceNOW
-from issue_helper.models import AnalysisResult, ServiceNowIncident
-
-
-class BaseAgent:
-    def __init__(self, client: genai.Client):
-        self.client = client
-        self.name = "base_agent"
-
-    def analyze(self, incident: ServiceNowIncident) -> AnalysisResult:
-        raise NotImplementedError
-
-
-class LinuxInfraAgent(BaseAgent):
-    def __init__(self, client: genai.Client):
-        super().__init__(client)
-        self.name = "linux_agent"
-
-    def analyze(self, incident: ServiceNowIncident) -> AnalysisResult:
-        prompt = f"""
-        Analyze Linux-related incident {incident.number}:
-        Description: {incident.description}
-        Related CIs: {incident.related_ci}
-
-        Consider common Linux issues:
-        - Disk space/partition issues
-        - Service failures
-        - Permission problems
-        - Kernel panics
-        - Package dependency issues
-        """
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash-001",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[self._linux_analysis_tool()]
-            ),
-        )
-        return self._parse_response(response)
-
-
-class WindowsInfraAgent(BaseAgent):
-    def __init__(self, client: genai.Client):
-        super().__init__(client)
-        self.name = "windows_agent"
-
-    def analyze(self, incident: ServiceNowIncident) -> AnalysisResult:
-        # Placeholder for Windows-specific logic
-        pass
-
-
-class IncidentAssistant:
-    def __init__(self, service_now: ServiceNOW):
-        self.service_now = service_now
-        self.llm_client = genai.Client()
-        self.agents = {
-            "linux": LinuxInfraAgent(self.llm_client),
-            "windows": WindowsInfraAgent(self.llm_client),
-        }
-
-    def fetch_incident(self, incident_id: str) -> ServiceNowIncident:
-        return self.service_now.get_incident(incident_id)
-
-    def analyze_incident(self, incident_id: str) -> dict[str, AnalysisResult]:
-        incident = self.fetch_incident(incident_id)
-        results = {}
-        for agent_name, agent in self.agents.items():
-            if self._should_run_agent(agent, incident):
-                results[agent_name] = agent.analyze(incident)
-        return results
-
-    def _should_run_agent(
-        self, agent: BaseAgent, incident: ServiceNowIncident
-    ) -> bool:
-        # Implement logic based on CI types or other attributes
-        return True
+class BaseAgent
+⋮----
+def __init__(self, client: genai.Client)
+def analyze(self, incident: ServiceNowIncident) -> AnalysisResult
+class LinuxInfraAgent(BaseAgent)
+⋮----
+prompt = f"""
+response = self.client.models.generate_content(
+⋮----
+class WindowsInfraAgent(BaseAgent)
+class IncidentAssistant
+⋮----
+def __init__(self, service_now: ServiceNOW)
+def fetch_incident(self, incident_id: str) -> ServiceNowIncident
+def analyze_incident(self, incident_id: str) -> dict[str, AnalysisResult]
+⋮----
+incident = self.fetch_incident(incident_id)
+results = {}
 ````
 
 ## File: issue_helper/itsm.py
 ````python
-from typing import Optional
-
-import requests
-
-from issue_helper.models import ServiceNowIncident
-
-
-class ServiceNOW:
-    def __init__(
-        self,
-        url: str,
-        username: str,
-        password: str,
-        verify: Optional[bool] = None,
-    ):
-        self.url = url.rstrip("/")
-        self.session = requests.Session()
-        self.session.auth = (username, password)
-        self.verify = verify
-
-    def get_table(self, table: str, params: dict):
-        full_url = f"{self.url}/api/now/table/{table}"
-        response = self.session.get(full_url, params=params, verify=self.verify)
-        response.raise_for_status()
-        return response.json()
-
-    def get_incident(self, incident_id: str) -> ServiceNowIncident:
-        result = self.get_table(
-            table="incident", params={"sys_id": incident_id}
-        )
-        records = result.get("result", [])
-        if not records:
-            raise ValueError(f"Incident with sys_id {incident_id} not found")
-        return ServiceNowIncident(**records[0])
-
-    def get_configuration_item(self, incident_id: str) -> Optional[str]:
-        incident = self.get_incident(incident_id)
-        return incident.configuration_item
-
-    def get_application(self, configuration_item: str) -> Optional[str]:
-        response = self.get_table(
-            table="cmdb_ci", params={"sys_id": configuration_item}
-        )
-        records = response.get("result", [])
-        if not records:
-            return None
-        # Assuming 'application' field exists in cmdb_ci table
-        return records[0].get("application")
-
-    def find_history_incidents_of_configuration_item(
-        self, configuration_item: str
-    ) -> list[ServiceNowIncident]:
-        response = self.get_table(
-            table="incident", params={"configuration_item": configuration_item}
-        )
-        records = response.get("result", [])
-        return (
-            [ServiceNowIncident(**record) for record in records]
-            if records
-            else []
-        )
+class ServiceNOW
+⋮----
+def get_table(self, table: str, params: dict)
+⋮----
+full_url = f"{self.url}/api/now/table/{table}"
+response = self.session.get(full_url, params=params, verify=self.verify)
+⋮----
+def get_incident(self, incident_id: str) -> ServiceNowIncident
+⋮----
+result = self.get_table(
+records = result.get("result", [])
+⋮----
+def get_configuration_item(self, incident_id: str) -> Optional[str]
+⋮----
+incident = self.get_incident(incident_id)
+⋮----
+def get_application(self, configuration_item: str) -> Optional[str]
+⋮----
+response = self.get_table(
+records = response.get("result", [])
 ````
 
 ## File: issue_helper/main.py
 ````python
-import click
-
-from issue_helper.agents import IncidentAssistant
-from issue_helper.itsm import ServiceNOW
-
-
 @click.command()
 @click.argument("incident")
-def main(incident: str):
-    url = "https://your-instance.service-now.com"
-    username = ("username",)
-    password = "password"  # noqa: S105
-
-    service_now = ServiceNOW(url=url, username=username, password=password)
-    assistant = IncidentAssistant(service_now)
-
-    results = assistant.analyze_incident(incident)
-
-    for agent, analysis in results.items():
-        print(f"=== {agent.upper()} ANALYSIS ===")
-        print("Findings:", analysis.findings)
-        print("Recommendations:", analysis.recommendations)
-
-
-if __name__ == "__main__":
-    main()
+def main(incident: str)
+⋮----
+url = "https://your-instance.service-now.com"
+username = ("username",)
+password = "password"
+service_now = ServiceNOW(url=url, username=username, password=password)
+assistant = IncidentAssistant(service_now)
+results = assistant.analyze_incident(incident)
 ````
 
 ## File: pyproject.toml
